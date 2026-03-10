@@ -97,6 +97,7 @@ Write:
 2. One line per asset on how it is impacted
 
 Be concise and professional.
+Do not add asterisks.
 """
 
     try:

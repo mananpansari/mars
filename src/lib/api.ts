@@ -117,8 +117,11 @@ export async function fetchSST() {
 }
 
 /** Fetch AI briefing */
-export async function fetchBriefing() {
-    return apiFetch<{ briefing: string }>("/briefing");
+export async function fetchBriefing(items?: PortfolioInputItem[]) {
+    return apiFetch<{ briefing: string }>("/briefing", {
+        method: "POST",
+        body: items && items.length > 0 ? JSON.stringify(items) : undefined,
+    });
 }
 
 /** Check if backend is reachable */

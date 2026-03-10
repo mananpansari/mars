@@ -195,11 +195,27 @@ def dashboard():
 
 from summarizer import generate_summary, load_news
 
-@app.get("/briefing")
-def briefing():
+@app.post("/briefing")
+def briefing(items: list[dict] = Body(default=None)):
     try:
         news = load_news("sst_input.json")
-        summary = generate_summary(news)
+        if not items:
+            items = DEFAULT_PORTFOLIO
+        
+        portfolio = []
+        for item in items:
+            ticker = str(item.get("ticker", "Unknown")).upper()
+            item_name = item.get("name", "Custom Asset")
+            if item_name == "Custom Asset":
+                try:
+                    t = yf.Ticker(ticker)
+                    full_info = t.info
+                    item_name = full_info.get("shortName", full_info.get("longName", ticker))
+                except:
+                    item_name = ticker
+            portfolio.append(item_name)
+            
+        summary = generate_summary(news, portfolio=portfolio)
         return {"briefing": summary}
     except Exception as e:
         return {"briefing": f"Briefing unavailable: {str(e)}"}
@@ -239,6 +255,18 @@ def portfolio(items: list[dict] = Body(default=None)):
         ticker = item["ticker"]
         try:
             t = yf.Ticker(ticker)
+            
+            item_name = item.get("name", "Custom Asset")
+            item_sector = item.get("sector", "Unknown")
+            
+            if item_name == "Custom Asset" or item_sector == "Unknown":
+                try:
+                    full_info = t.info
+                    item_name = full_info.get("shortName", full_info.get("longName", ticker))
+                    item_sector = full_info.get("sector", "Other")
+                except:
+                    item_name = ticker
+                    item_sector = "Other"
             
             # Get recent history (always available, even after hours)
             hist = t.history(period="1mo", interval="1d")
@@ -287,8 +315,8 @@ def portfolio(items: list[dict] = Body(default=None)):
 
             results.append({
                 "ticker": ticker,
-                "name": item["name"],
-                "sector": item["sector"],
+                "name": item_name,
+                "sector": item_sector,
                 "quantity": item["quantity"],
                 "price": round(price, 2),
                 "change": round(change, 2),
@@ -305,8 +333,8 @@ def portfolio(items: list[dict] = Body(default=None)):
         except Exception as e:
             results.append({
                 "ticker": ticker,
-                "name": item["name"],
-                "sector": item["sector"],
+                "name": item.get("name", "Custom Asset"),
+                "sector": item.get("sector", "Unknown"),
                 "quantity": item["quantity"],
                 "price": 0,
                 "change": 0,

@@ -43,15 +43,33 @@ export default function PortfolioPage() {
 
     // Load custom portfolio from local storage
     useEffect(() => {
-        const saved = localStorage.getItem("customPortfolio");
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    setCustomHoldings(parsed);
+        const loadHoldings = () => {
+            const saved = localStorage.getItem("customPortfolio");
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setCustomHoldings(parsed);
+                    } else {
+                        setCustomHoldings([]);
+                    }
+                } catch (e) {
+                    setCustomHoldings([]);
                 }
-            } catch (e) { }
-        }
+            } else {
+                setCustomHoldings([]);
+            }
+        };
+
+        loadHoldings();
+
+        window.addEventListener("portfolioUpdated", loadHoldings);
+        window.addEventListener("storage", loadHoldings);
+
+        return () => {
+            window.removeEventListener("portfolioUpdated", loadHoldings);
+            window.removeEventListener("storage", loadHoldings);
+        };
     }, []);
 
     const saveHoldings = (items: PortfolioInputItem[]) => {
@@ -61,6 +79,7 @@ export default function PortfolioPage() {
         } else {
             localStorage.removeItem("customPortfolio");
         }
+        window.dispatchEvent(new Event("portfolioUpdated"));
     };
 
     const handleAddAsset = () => {

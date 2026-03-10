@@ -29,21 +29,40 @@ export default function DashboardPage() {
 
   // Load custom portfolio from local storage
   useEffect(() => {
-    const saved = localStorage.getItem("customPortfolio");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCustomHoldings(parsed);
+    const loadHoldings = () => {
+      const saved = localStorage.getItem("customPortfolio");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCustomHoldings(parsed);
+          } else {
+            setCustomHoldings([]);
+          }
+        } catch (e) {
+          setCustomHoldings([]);
         }
-      } catch (e) { }
-    }
+      } else {
+        setCustomHoldings([]);
+      }
+    };
+
+    loadHoldings();
+
+    // Listen for events from other components and tabs
+    window.addEventListener("portfolioUpdated", loadHoldings);
+    window.addEventListener("storage", loadHoldings);
+
+    return () => {
+      window.removeEventListener("portfolioUpdated", loadHoldings);
+      window.removeEventListener("storage", loadHoldings);
+    };
   }, []);
 
   // ─── Live data polling ───────────────────────────────────
   const dashboardFetcher = useCallback(() => fetchDashboard(), []);
   const articlesFetcher = useCallback(() => fetchArticles(), []);
-  const briefingFetcher = useCallback(() => fetchBriefing(), []);
+  const briefingFetcher = useCallback(() => fetchBriefing(customHoldings.length > 0 ? customHoldings : undefined), [customHoldings]);
   const portfolioFetcher = useCallback(() => fetchPortfolio(customHoldings.length > 0 ? customHoldings : undefined), [customHoldings]);
 
   const {
@@ -231,10 +250,10 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2">
                       <span
                         className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${news.sentiment === "BULLISH"
-                            ? "badge-bullish"
-                            : news.sentiment === "BEARISH"
-                              ? "badge-bearish"
-                              : "badge-neutral"
+                          ? "badge-bullish"
+                          : news.sentiment === "BEARISH"
+                            ? "badge-bearish"
+                            : "badge-neutral"
                           }`}
                       >
                         {news.sentiment}
@@ -331,8 +350,8 @@ export default function DashboardPage() {
                 </span>
                 <span
                   className={`px-2 py-0.5 text-[8px] rounded font-bold uppercase ${event.impact === "HIGH"
-                      ? "bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30"
-                      : "bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30"
+                    ? "bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30"
+                    : "bg-[#39FF14]/10 text-[#39FF14] border border-[#39FF14]/30"
                     }`}
                 >
                   {event.impact}

@@ -6,3 +6,5 @@ lxml
 vaderSentiment
 spacy>=3.7.0
 apscheduler
+python-dotenv
+openai

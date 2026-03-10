@@ -38,10 +38,15 @@ export function usePolling<T>({
     const [isLoading, setIsLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const fetchIdRef = useRef(0);
 
     const fetchData = useCallback(async () => {
+        const fetchId = ++fetchIdRef.current;
         try {
             const result = await fetcher();
+
+            // Prevent race condition: only process the most recent fetch
+            if (fetchId !== fetchIdRef.current) return;
 
             if (result.data) {
                 setData(result.data);
@@ -57,13 +62,17 @@ export function usePolling<T>({
                 }
             }
         } catch (err: any) {
+            if (fetchId !== fetchIdRef.current) return;
+
             setError(err.message || "Unknown error");
             setIsLive(false);
             if (fallback && !data) {
                 setData(fallback);
             }
         } finally {
-            setIsLoading(false);
+            if (fetchId === fetchIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [fetcher, fallback]);
 
