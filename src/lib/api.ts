@@ -97,8 +97,11 @@ export async function fetchArticles() {
 }
 
 /** Fetch theme heatmap scores */
-export async function fetchHeatmap() {
-    return apiFetch<{ heatmap: Record<string, number> }>("/heatmap");
+export async function fetchHeatmap(items?: PortfolioInputItem[]) {
+    return apiFetch<{ heatmap: Record<string, number> }>("/heatmap", {
+        method: "POST",
+        body: items && items.length > 0 ? JSON.stringify(items) : undefined,
+    });
 }
 
 /** Fetch timeline snapshots */
@@ -112,8 +115,11 @@ export async function fetchAlerts() {
 }
 
 /** Fetch SST output */
-export async function fetchSST() {
-    return apiFetch<any>("/sst");
+export async function fetchSST(items?: PortfolioInputItem[]) {
+    return apiFetch<any>("/sst", {
+        method: "POST",
+        body: items && items.length > 0 ? JSON.stringify(items) : undefined,
+    });
 }
 
 /** Fetch AI briefing */

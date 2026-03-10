@@ -859,92 +859,96 @@ def run_sst_from_nlp_json(
 # LOAD JSON INPUT
 # -------------------------
 
-with open("/Users/smyannarang/Downloads/sst_input.json", "r") as f:
-    nlp_json = json.load(f)
+if __name__ == "__main__":
+    try:
+        with open("sst_input.json", "r") as f:
+            nlp_json = json.load(f)
 
-# -------------------------
-# RUN SST ENGINE FROM NLP JSON
-# -------------------------
+        # -------------------------
+        # RUN SST ENGINE FROM NLP JSON
+        # -------------------------
 
-result = run_sst_from_nlp_json(
-    nlp_json=nlp_json,
-    portfolio=portfolio,
-    factor_map=factor_map,
-    previous_theme_heat=None
-)
+        result = run_sst_from_nlp_json(
+            nlp_json=nlp_json,
+            portfolio=portfolio,
+            factor_map=factor_map,
+            previous_theme_heat=None
+        )
 
-# -------------------------
-# PRINT TEST OUTPUTS
-# -------------------------
+        # -------------------------
+        # PRINT TEST OUTPUTS
+        # -------------------------
 
-print("\n================ NLP METADATA ================\n")
-print("Article Count:", result["nlp_metadata"]["article_count"])
-print("Derived Heat:", result["nlp_metadata"]["derived_heat"])
-print("Derived Confidence:", result["nlp_metadata"]["derived_confidence"])
+        print("\n================ NLP METADATA ================\n")
+        print("Article Count:", result["nlp_metadata"]["article_count"])
+        print("Derived Heat:", result["nlp_metadata"]["derived_heat"])
+        print("Derived Confidence:", result["nlp_metadata"]["derived_confidence"])
 
-print("\nDerived Theme Scores:")
-for k, v in result["nlp_metadata"]["derived_theme_scores"].items():
-    print(f"{k}: {v:.4f}")
+        print("\nDerived Theme Scores:")
+        for k, v in result["nlp_metadata"]["derived_theme_scores"].items():
+            print(f"{k}: {v:.4f}")
 
-print("\nAlerts:")
-for alert in result["nlp_metadata"]["alerts"]:
-    print(alert)
+        print("\nAlerts:")
+        for alert in result["nlp_metadata"]["alerts"]:
+            print(alert)
 
-print("\n================ REGIME OUTPUT ================\n")
-print("Detected Regime:", result["regime_output"]["regime"])
-print("Regime Confidence:", result["regime_output"]["regime_confidence"])
+        print("\n================ REGIME OUTPUT ================\n")
+        print("Detected Regime:", result["regime_output"]["regime"])
+        print("Regime Confidence:", result["regime_output"]["regime_confidence"])
 
-print("\nTheme Probabilities:")
-for k, v in result["regime_output"]["probabilities"].items():
-    print(f"{k}: {v:.4f}")
+        print("\nTheme Probabilities:")
+        for k, v in result["regime_output"]["probabilities"].items():
+            print(f"{k}: {v:.4f}")
 
-print("\nRegime Visualizer:")
-for row in result["regime_output"]["visualizer"]:
-    print(row)
+        print("\nRegime Visualizer:")
+        for row in result["regime_output"]["visualizer"]:
+            print(row)
 
-print("\n================ THEME TRACKER ================\n")
-for row in result["theme_tracker"]["table"]:
-    print(row)
+        print("\n================ THEME TRACKER ================\n")
+        for row in result["theme_tracker"]["table"]:
+            print(row)
 
-print("\n================ CROSS ASSET IMPACT ================\n")
-print("Cross Asset Table:")
-for row in result["cross_asset_impact"]["table"]:
-    print(row)
+        print("\n================ CROSS ASSET IMPACT ================\n")
+        print("Cross Asset Table:")
+        for row in result["cross_asset_impact"]["table"]:
+            print(row)
 
-print("\nCross Asset Visualizer:")
-for row in result["cross_asset_impact"]["visualizer"]:
-    print(row)
+        print("\nCross Asset Visualizer:")
+        for row in result["cross_asset_impact"]["visualizer"]:
+            print(row)
 
-print("\n================ SCENARIO LADDER ================\n")
-print("Baseline Shock:", result["scenario_ladder"]["baseline"])
-print("Moderate Shock:", result["scenario_ladder"]["moderate"])
-print("Severe Shock:", result["scenario_ladder"]["severe"])
+        print("\n================ SCENARIO LADDER ================\n")
+        print("Baseline Shock:", result["scenario_ladder"]["baseline"])
+        print("Moderate Shock:", result["scenario_ladder"]["moderate"])
+        print("Severe Shock:", result["scenario_ladder"]["severe"])
 
-print("\nScenario Ladder Visualizer:")
-for row in result["scenario_ladder"]["visualizer"]:
-    print(row)
+        print("\nScenario Ladder Visualizer:")
+        for row in result["scenario_ladder"]["visualizer"]:
+            print(row)
 
-print("\n================ PORTFOLIO IMPACT ================\n")
-print("Total Portfolio Impact:", result["portfolio_impact"]["total_portfolio_impact"])
+        print("\n================ PORTFOLIO IMPACT ================\n")
+        print("Total Portfolio Impact:", result["portfolio_impact"]["total_portfolio_impact"])
 
-print("\nPortfolio Map:")
-for row in result["portfolio_impact"]["portfolio_map"]:
-    print(row)
+        print("\nPortfolio Map:")
+        for row in result["portfolio_impact"]["portfolio_map"]:
+            print(row)
 
-print("\nPortfolio Visualizer:")
-for row in result["portfolio_impact"]["visualizer"]:
-    print(row)
+        print("\nPortfolio Visualizer:")
+        for row in result["portfolio_impact"]["visualizer"]:
+            print(row)
 
-print("\nTop Positive Contributors:")
-for row in result["portfolio_impact"]["risk_contributions"]["top_positive_contributors"]:
-    print(row)
+        print("\nTop Positive Contributors:")
+        for row in result["portfolio_impact"]["risk_contributions"]["top_positive_contributors"]:
+            print(row)
 
-print("\nTop Negative Contributors:")
-for row in result["portfolio_impact"]["risk_contributions"]["top_negative_contributors"]:
-    print(row)
+        print("\nTop Negative Contributors:")
+        for row in result["portfolio_impact"]["risk_contributions"]["top_negative_contributors"]:
+            print(row)
 
-print("\n================ SHOCK VECTOR ================\n")
-print(result["shock_vector"])
+        print("\n================ SHOCK VECTOR ================\n")
+        print(result["shock_vector"])
 
-print("\n================ FULL JSON OUTPUT ================\n")
-print(json.dumps(result, indent=2))
+        print("\n================ FULL JSON OUTPUT ================\n")
+        print(json.dumps(result, indent=2))
+    except Exception as e:
+        print(f"Error running SST Engine as script: {e}")

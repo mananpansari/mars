@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
     heatmapData as mockHeatmapData,
     heatmapDays as mockHeatmapDays,
@@ -11,6 +11,7 @@ import {
     fetchTimeline,
     transformTimelineToHeatmapMatrix,
     BackendTimelineSnapshot,
+    PortfolioInputItem,
 } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
 import LiveStatusBadge from "@/components/LiveStatusBadge";
@@ -49,9 +50,39 @@ export default function HeatmapPage() {
         colIdx: number;
         value: number;
     } | null>(null);
+    const [customHoldings, setCustomHoldings] = useState<PortfolioInputItem[]>([]);
+
+    // ─── Load custom portfolio from local storage ────────────────
+    useEffect(() => {
+        const loadHoldings = () => {
+            const saved = localStorage.getItem("customPortfolio");
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setCustomHoldings(parsed);
+                    } else {
+                        setCustomHoldings([]);
+                    }
+                } catch (e) {
+                    setCustomHoldings([]);
+                }
+            } else {
+                setCustomHoldings([]);
+            }
+        };
+
+        loadHoldings();
+        window.addEventListener("portfolioUpdated", loadHoldings);
+        window.addEventListener("storage", loadHoldings);
+        return () => {
+            window.removeEventListener("portfolioUpdated", loadHoldings);
+            window.removeEventListener("storage", loadHoldings);
+        };
+    }, []);
 
     // ─── Live data polling ───────────────────────────────────
-    const heatmapFetcher = useCallback(() => fetchHeatmap(), []);
+    const heatmapFetcher = useCallback(() => fetchHeatmap(customHoldings.length > 0 ? customHoldings : undefined), [customHoldings]);
     const timelineFetcher = useCallback(() => fetchTimeline(), []);
 
     const {

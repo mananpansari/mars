@@ -9,6 +9,73 @@ from scorer import score_article, compute_confidence, compute_theme_strength, co
 from heat_score import calculate_heat, compute_article_heat, compute_recency
 from alerts import run_alerts
 from timeline import save_snapshot, load_timeline
+import sst_engine
+from summarizer import main as run_summarizer
+
+DEFAULT_FACTOR_MAP = {
+    "AAPL": "Equities", "MSFT": "Equities", "GOOGL": "Equities", "AMZN": "Equities", "META": "Equities", "NVDA": "Equities", "TSLA": "Equities",
+    "TLT": "Rates", "IEF": "Rates", "SHY": "Rates",
+    "JPM": "Equities", "GS": "Equities", "BAC": "Equities",
+    "HYG": "Credit_Spreads", "LQD": "Credit_Spreads",
+    "UUP": "USD", "FXE": "USD", "FXY": "USD",
+    "USO": "Oil", "XLE": "Oil", "BNO": "Oil",
+    "GLD": "Equities", # Actually commodity but often maps to equities in simple models
+    "VIXY": "Volatility", "VXX": "Volatility", "UVXY": "Volatility"
+}
+
+def get_factor_for_ticker(ticker, sector=None):
+    ticker = ticker.upper()
+    if ticker in DEFAULT_FACTOR_MAP:
+        return DEFAULT_FACTOR_MAP[ticker]
+    
+    # Heuristic based on sector
+    if sector:
+        sector = sector.lower()
+        if any(w in sector for w in ["tech", "soft", "semic", "communication", "discretionary", "financial", "industrial", "health", "consumer"]):
+            return "Equities"
+        if any(w in sector for w in ["bond", "treasury", "fixed", "income"]):
+            return "Rates"
+        if any(w in sector for w in ["energy", "oil", "gas"]):
+            return "Oil"
+        if any(w in sector for w in ["currency", "forex"]):
+            return "USD"
+        if any(w in sector for w in ["volatility", "fear"]):
+            return "Volatility"
+    
+    return "Equities" # Default fallback
+
+def compute_sst_results(portfolio_items=None):
+    if not os.path.exists("sst_input.json"):
+        try:
+            run_summarizer()
+        except Exception as e:
+            print(f"Error running summarizer: {e}")
+            return {"status": "Error running macro pipeline", "regime_output": {"regime": "Neutral"}}
+        
+    with open("sst_input.json", "r") as f:
+        nlp_json = json.load(f)
+        
+    if not portfolio_items:
+        portfolio_items = DEFAULT_PORTFOLIO
+        
+    # Convert to expected format for SST engine
+    sst_portfolio = []
+    sst_factor_map = {}
+    
+    total_qty = sum(float(item.get("quantity", 0)) for item in portfolio_items)
+    for item in portfolio_items:
+        ticker = str(item.get("ticker", "Unknown")).upper()
+        qty = float(item.get("quantity", 0))
+        weight = qty / total_qty if total_qty > 0 else (1.0 / len(portfolio_items) if portfolio_items else 0)
+        
+        sst_portfolio.append({"ticker": ticker, "weight": weight})
+        sst_factor_map[ticker] = get_factor_for_ticker(ticker, item.get("sector"))
+        
+    return sst_engine.run_sst_from_nlp_json(
+        nlp_json=nlp_json,
+        portfolio=sst_portfolio,
+        factor_map=sst_factor_map
+    )
 
 app = FastAPI()
 
@@ -94,11 +161,18 @@ def root():
     return {"status": "Macro NLP Engine Running"}
 
 
-@app.get("/heatmap")
-def heatmap():
-    articles = fetch_articles()
-    heat = calculate_heat(articles)
-    return {"heatmap": heat}
+@app.post("/heatmap")
+def heatmap(items: list[dict] = Body(default=None)):
+    try:
+        sst_res = compute_sst_results(items)
+        # Use current_theme_heat_map from SST engine
+        heat = sst_res["theme_tracker"]["current_theme_heat_map"]
+        return {"heatmap": heat}
+    except Exception as e:
+        # Fallback to original calculation if SST fails
+        articles = fetch_articles()
+        heat = calculate_heat(articles)
+        return {"heatmap": heat}
 
 
 @app.get("/alerts")
@@ -164,13 +238,12 @@ def snapshot():
     return {"status": "Snapshot saved", "scores": heat}
 
 
-@app.get("/sst")
-def sst():
-    # SST engine writes its output here
-    if os.path.exists("sst_output.json"):
-        with open("sst_output.json") as f:
-            return json.load(f)
-    return {"status": "SST output not available yet"}
+@app.post("/sst")
+def sst(items: list[dict] = Body(default=None)):
+    try:
+        return compute_sst_results(items)
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/dashboard")
@@ -182,9 +255,10 @@ def dashboard():
     timeline = load_timeline()
 
     sst = {}
-    if os.path.exists("sst_output.json"):
-        with open("sst_output.json") as f:
-            sst = json.load(f)
+    try:
+        sst = compute_sst_results()
+    except:
+        pass
 
     return {
         "heatmap":  heat,
