@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
+import { PortfolioInputItem } from "@/lib/api";
 import { fetchPortfolio, PortfolioHolding, PortfolioResponse } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
 import LiveStatusBadge from "@/components/LiveStatusBadge";
@@ -35,7 +36,51 @@ function getSectorColor(sector: string): string {
 }
 
 export default function PortfolioPage() {
-    const fetcher = useCallback(() => fetchPortfolio(), []);
+    const [customHoldings, setCustomHoldings] = useState<PortfolioInputItem[]>([]);
+    const [isEditing, setIsEditing] = useState(false);
+    const [newTicker, setNewTicker] = useState("");
+    const [newQty, setNewQty] = useState("");
+
+    // Load custom portfolio from local storage
+    useEffect(() => {
+        const saved = localStorage.getItem("customPortfolio");
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    setCustomHoldings(parsed);
+                }
+            } catch (e) { }
+        }
+    }, []);
+
+    const saveHoldings = (items: PortfolioInputItem[]) => {
+        setCustomHoldings(items);
+        if (items.length > 0) {
+            localStorage.setItem("customPortfolio", JSON.stringify(items));
+        } else {
+            localStorage.removeItem("customPortfolio");
+        }
+    };
+
+    const handleAddAsset = () => {
+        if (!newTicker || !newQty) return;
+        const newItem: PortfolioInputItem = {
+            ticker: newTicker.toUpperCase(),
+            name: "Custom Asset",
+            quantity: parseFloat(newQty) || 1,
+            sector: "Unknown"
+        };
+        const updated = [...customHoldings.filter(h => h.ticker !== newItem.ticker), newItem];
+        saveHoldings(updated);
+        setNewTicker("");
+        setNewQty("");
+    };
+
+    const handleRemoveAsset = (ticker: string) => {
+        saveHoldings(customHoldings.filter(h => h.ticker !== ticker));
+    };
+    const fetcher = useCallback(() => fetchPortfolio(customHoldings.length > 0 ? customHoldings : undefined), [customHoldings]);
 
     const {
         data: portfolioData,
@@ -89,14 +134,50 @@ export default function PortfolioPage() {
                         Live Stock Prices & Holdings // yFinance Feed
                     </p>
                 </div>
-                <LiveStatusBadge
-                    isLive={isLive}
-                    isLoading={isLoading}
-                    lastUpdated={lastUpdated}
-                    error={error}
-                    onRefresh={refresh}
-                />
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setIsEditing(!isEditing)} className="px-3 py-1.5 rounded text-xs font-bold uppercase transition-colors border border-[#30363D] hover:border-[#39FF14] text-[#8B949E] hover:text-[#39FF14]">
+                        {isEditing ? "Done Editing" : "Customize Portfolio"}
+                    </button>
+                    <LiveStatusBadge
+                        isLive={isLive}
+                        isLoading={isLoading}
+                        lastUpdated={lastUpdated}
+                        error={error}
+                        onRefresh={refresh}
+                    />
+                </div>
             </div>
+
+            {isEditing && (
+                <div className="card p-5 mb-5 space-y-4 border-[#39FF14]/30 bg-[#39FF14]/5">
+                    <h2 className="section-header text-[#39FF14]">⚙️ Edit Custom Portfolio</h2>
+                    <p className="text-xs text-[#8B949E]">Add your own stocks here. If you clear all items, the system will revert to the default tracking portfolio.</p>
+                    <div className="flex flex-wrap gap-4 items-end">
+                        <div className="flex-1 min-w-[150px]">
+                            <label className="block text-[10px] text-[#8B949E] uppercase mb-1">Ticker (e.g. NVDA)</label>
+                            <input type="text" value={newTicker} onChange={(e) => setNewTicker(e.target.value)} className="w-full bg-[#0E1117] border border-[#30363D] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-[#39FF14]" placeholder="NVDA" />
+                        </div>
+                        <div className="flex-1 min-w-[150px]">
+                            <label className="block text-[10px] text-[#8B949E] uppercase mb-1">Quantity</label>
+                            <input type="number" value={newQty} onChange={(e) => setNewQty(e.target.value)} className="w-full bg-[#0E1117] border border-[#30363D] rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-[#39FF14]" placeholder="10" />
+                        </div>
+                        <button onClick={handleAddAsset} className="bg-[#39FF14]/20 hover:bg-[#39FF14]/30 text-[#39FF14] px-4 py-2 rounded text-sm font-bold transition-colors">
+                            + Add Asset
+                        </button>
+                    </div>
+                    {customHoldings.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-[#30363D]/50 flex flex-wrap gap-2">
+                            {customHoldings.map(h => (
+                                <div key={h.ticker} className="flex items-center bg-[#0E1117] border border-[#30363D] rounded px-3 py-1.5 text-xs text-white">
+                                    <span className="font-bold mr-2">{h.ticker}</span>
+                                    <span className="text-[#8B949E] mr-3">{h.quantity}</span>
+                                    <button onClick={() => handleRemoveAsset(h.ticker)} className="text-[#EF4444] hover:text-white transition-colors">✕</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* PORTFOLIO SUMMARY */}
             <div className="grid grid-cols-12 gap-5">

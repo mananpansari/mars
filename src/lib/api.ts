@@ -154,9 +154,34 @@ export interface PortfolioResponse {
     totalChangePct: number;
 }
 
+export interface PortfolioInputItem {
+    ticker: string;
+    name: string;
+    quantity: number;
+    sector: string;
+}
+
 /** Fetch live portfolio stock data */
-export async function fetchPortfolio() {
-    return apiFetch<PortfolioResponse>("/portfolio", { timeout: 30000 });
+export async function fetchPortfolio(items?: PortfolioInputItem[]) {
+    return apiFetch<PortfolioResponse>("/portfolio", {
+        method: "POST",
+        body: items && items.length > 0 ? JSON.stringify(items) : undefined,
+        timeout: 30000
+    });
+}
+
+export interface PortfolioShiftResponse {
+    shifts: Record<string, number>;
+    portfolioShift: number;
+}
+
+/** Fetch portfolio performance since a specific timestamp */
+export async function fetchPortfolioShift(timestamp: string, items?: PortfolioInputItem[]) {
+    return apiFetch<PortfolioShiftResponse>("/portfolio/shift", {
+        method: "POST",
+        body: JSON.stringify({ timestamp, items: items && items.length > 0 ? items : undefined }),
+        timeout: 30000
+    });
 }
 
 // ─── Data Transformers ───────────────────────────────────────

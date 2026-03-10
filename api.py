@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 import json
@@ -111,8 +111,17 @@ def alerts():
 @app.get("/articles")
 def articles():
     articles = fetch_articles()
+    
+    seen_titles = set()
+    unique_articles = []
+    for a in articles:
+        norm = a["title"].lower().strip()
+        if norm not in seen_titles:
+            seen_titles.add(norm)
+            unique_articles.append(a)
+            
     results = []
-    for article in articles:
+    for article in unique_articles:
         match_scores = compute_theme_matches(article["text"])
         scores = score_article(article["text"])
         if not scores:
@@ -220,10 +229,13 @@ DEFAULT_PORTFOLIO = [
     {"ticker": "SPY",   "name": "S&P 500 ETF",      "quantity": 35,  "sector": "Index"},
 ]
 
-@app.get("/portfolio")
-def portfolio():
+@app.post("/portfolio")
+def portfolio(items: list[dict] = Body(default=None)):
+    if not items:
+        items = DEFAULT_PORTFOLIO
+
     results = []
-    for item in DEFAULT_PORTFOLIO:
+    for item in items:
         ticker = item["ticker"]
         try:
             t = yf.Ticker(ticker)
@@ -318,4 +330,64 @@ def portfolio():
         "totalValue": round(total_value, 2),
         "totalChange": round(total_change, 2),
         "totalChangePct": round((total_change / total_value * 100) if total_value > 0 else 0, 2),
+    }
+
+from dateutil import parser
+import datetime
+
+@app.post("/portfolio/shift")
+def portfolio_shift(timestamp: str = Body(...), items: list[dict] = Body(default=None)):
+    if not items:
+        items = DEFAULT_PORTFOLIO
+        
+    try:
+        t0_dt = parser.parse(timestamp)
+        # Handle timezones to get UTC date for yfinance start string
+        if t0_dt.tzinfo:
+            t0_dt = t0_dt.astimezone(datetime.timezone.utc)
+        t0_date = t0_dt.strftime('%Y-%m-%d')
+    except Exception as e:
+        return {"error": f"Invalid timestamp format: {e}"}
+        
+    shifts = {}
+    for item in items:
+        ticker = item["ticker"]
+        try:
+            t = yf.Ticker(ticker)
+            # Fetch history from the date of the article to now
+            hist = t.history(start=t0_date)
+            if not hist.empty:
+                t0_price = float(hist['Close'].iloc[0])
+                current_price = float(hist['Close'].iloc[-1])
+                try:
+                    info = t.fast_info
+                    current_price = float(info.get("last_price", current_price))
+                except:
+                    pass
+                    
+                if t0_price > 0:
+                    shift_pct = ((current_price - t0_price) / t0_price) * 100
+                    shifts[ticker] = round(shift_pct, 2)
+        except:
+            pass
+            
+    # Calculate portfolio weighted shift
+    total_val = 0
+    total_shift = 0
+    for item in items:
+        ticker = item["ticker"]
+        qty = float(item.get("quantity", 0))
+        
+        # approximate weighting by quantity for simple calc if initial price isn't stored locally
+        # properly it should be qty * initial_price, but we only have % shift here 
+        # let's just use equal weight or simple average for now to simplify
+        if ticker in shifts:
+            total_val += qty
+            total_shift += qty * shifts[ticker]
+            
+    avg_shift = total_shift / total_val if total_val > 0 else 0
+    
+    return {
+        "shifts": shifts,
+        "portfolioShift": round(avg_shift, 2)
     }
